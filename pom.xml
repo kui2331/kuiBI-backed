@@ -19,6 +19,18 @@
         <java.version>1.8</java.version>
     </properties>
     <dependencies>
+        <!-- 腾讯云 DeepSeek AI -->
+        <dependency>
+            <groupId>com.tencentcloudapi</groupId>
+            <artifactId>tencentcloud-sdk-java-common</artifactId>
+            <version>LATEST</version>
+        </dependency>
+        <dependency>
+            <groupId>com.tencentcloudapi</groupId>
+            <artifactId>tencentcloud-sdk-java-lkeap</artifactId>
+            <version>LATEST</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-freemarker</artifactId>

@@ -1,6 +1,5 @@
 package com.yupi.springbootinit.controller;
 
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
@@ -13,16 +12,14 @@ import com.yupi.springbootinit.constant.CommonConstant;
 import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
+import com.yupi.springbootinit.manager.AiManager;
 import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.Chart;
-import com.yupi.springbootinit.model.entity.Post;
 import com.yupi.springbootinit.model.entity.User;
-import com.yupi.springbootinit.model.vo.PostVO;
+import com.yupi.springbootinit.model.vo.BiResponse;
 import com.yupi.springbootinit.service.ChartService;
-import com.yupi.springbootinit.service.PostService;
 import com.yupi.springbootinit.service.UserService;
 
-import java.util.List;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 
@@ -51,6 +48,9 @@ public class ChartController {
 
     @Resource
     private ChartService chartService;
+
+    @Resource
+    private AiManager aiManager;
 
     private final static Gson GSON = new Gson();
 
@@ -149,30 +149,30 @@ public class ChartController {
      * @param chartQueryRequest
      * @return
      */
-    public QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest){
+    public QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {
         QueryWrapper<Chart> queryWrapper = new QueryWrapper<Chart>();
-        if(chartQueryRequest == null){
+        if (chartQueryRequest == null) {
             return queryWrapper;
         }
         Long id = chartQueryRequest.getId();
         String name = chartQueryRequest.getName();
-        String goal=chartQueryRequest.getGoal();
-        String chartType=chartQueryRequest.getChartType();
-        Long userId=chartQueryRequest.getUserId();
-        String sortField=chartQueryRequest.getSortField();
-        String sortOrder=chartQueryRequest.getSortOrder();
+        String goal = chartQueryRequest.getGoal();
+        String chartType = chartQueryRequest.getChartType();
+        Long userId = chartQueryRequest.getUserId();
+        String sortField = chartQueryRequest.getSortField();
+        String sortOrder = chartQueryRequest.getSortOrder();
 
-        queryWrapper.eq(id!=null&&id>0,"id",id);
-        queryWrapper.like(StringUtils.isNotBlank(name),"name",name);
-        queryWrapper.eq(StringUtils.isNotBlank(goal),"goal",goal);
-        queryWrapper.eq(StringUtils.isNotBlank(chartType),"chartType",chartType);
-        queryWrapper.eq(StringUtils.isNotBlank(sortField),"sortField",sortField);
-        queryWrapper.eq(StringUtils.isNotBlank(sortOrder),"sortOrder",sortOrder);
-        queryWrapper.eq(ObjectUtils.isNotEmpty(userId),"userId",userId);
-        queryWrapper.eq("isDeleted",false);
+        queryWrapper.eq(id != null && id > 0, "id", id);
+        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
+        queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
+        queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
+        queryWrapper.eq(StringUtils.isNotBlank(sortField), "sortField", sortField);
+        queryWrapper.eq(StringUtils.isNotBlank(sortOrder), "sortOrder", sortOrder);
+        queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
+        queryWrapper.eq("isDeleted", false);
         //validSortField 是 SqlUtils 类中的一个方法，它的作用是验证 sortField 是否是一个有效的排序字段。
         // 例如，防止SQL注入攻击，确保只对数据库中存在的字段进行排序。
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField),sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
                 sortField);
         return queryWrapper;
     }
@@ -236,7 +236,7 @@ public class ChartController {
      * @return
      */
     @PostMapping("/gen")
-    public BaseResponse<String> genChartByAi(@RequestPart("file") MultipartFile multipartFile, GenChartByAiRequest genChartByAiRequest, HttpServletRequest request)
+    public BaseResponse<BiResponse> genChartByAi(@RequestPart("file") MultipartFile multipartFile, GenChartByAiRequest genChartByAiRequest, HttpServletRequest request)
     {
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
@@ -247,13 +247,54 @@ public class ChartController {
         //名称长度不为空，但长度超过100
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCode.PARAMS_ERROR, "名称过长");
 
-        // 用户输入
+        User loginUser = userService.getLoginUser(request);
+        long biModelId = 1659171950288818178L;
+        // 用户输入：
+        // 分析需求：
+        // 分析网站用户的增长情况，请使用折线图
+        // 原始数据：
+        // 日期,用户数
+        // 1号,10
+        // 2号,20
+        // 3号,30
+
+        // 构造用户输入
         StringBuilder userInput = new StringBuilder();
-        userInput.append("你是一个数据分析师，接下来我会给你我的分析目标和原始数据，请告诉我分析结论。").append("\n");
-        userInput.append("分析目标：").append(goal).append("\n");
+        userInput.append("分析需求：").append("\n");
+
+        // 拼接分析目标
+        String userGoal = goal;
+        if (StringUtils.isNotBlank(chartType)) {
+            userGoal += "，请使用" + chartType;
+        }
+        userInput.append(userGoal).append("\n");
+        userInput.append("原始数据：").append("\n");
         // 压缩后的数据
-        String result = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append("数据：").append(result).append("\n");
-        return ResultUtils.success(userInput.toString());
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(csvData).append("\n");
+
+        String result = aiManager.doChat(biModelId, userInput.toString());
+        String[] splits = result.split("【【【【【");
+        if (splits.length < 3) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
+        }
+        String genChart = splits[1].trim();//删除字符串前后的空格
+        String genResult = splits[2].trim();
+        // 插入到数据库
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        BiResponse biResponse = new BiResponse();
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+        biResponse.setChartId(chart.getId());
+        return ResultUtils.success(biResponse);
     }
 }
