@@ -2,21 +2,28 @@ package com.yupi.springbootinit.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 
+import java.io.Serializable;
 import java.util.Date;
 import lombok.Data;
 
 /**
  * 图表信息表
+ *
  * @TableName chart
  */
-@TableName(value ="chart")
+@TableName(value = "chart")
 @Data
-public class Chart {
+public class Chart implements Serializable {
     /**
      * id
      */
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
+
+    /**
+     * 名称
+     */
+    private String name;
 
     /**
      * 分析目标
