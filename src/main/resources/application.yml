@@ -67,6 +67,7 @@ tencent:
     client:
       secret-id: "AKIDLXZSM3WotlRxHPK2YvBFQTJvKelfLn3H"
       secret-key: "IXuAFJFxVzKTTHtHbr06GG4i9N9nERRE"
+
 # 接口文档配置
 knife4j:
   enable: true
