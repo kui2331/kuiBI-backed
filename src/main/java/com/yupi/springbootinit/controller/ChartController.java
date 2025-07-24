@@ -14,6 +14,7 @@ import com.yupi.springbootinit.constant.UserConstant;
 import com.yupi.springbootinit.exception.BusinessException;
 import com.yupi.springbootinit.exception.ThrowUtils;
 import com.yupi.springbootinit.manager.AiManager;
+import com.yupi.springbootinit.manager.RedisLimiterManager;
 import com.yupi.springbootinit.model.dto.chart.*;
 import com.yupi.springbootinit.model.entity.Chart;
 import com.yupi.springbootinit.model.entity.User;
@@ -54,6 +55,9 @@ public class ChartController {
 
     @Resource
     private AiManager aiManager;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
 
     private final static Gson GSON = new Gson();
 
@@ -170,9 +174,8 @@ public class ChartController {
         queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
         queryWrapper.eq(StringUtils.isNotBlank(sortField), "sortField", sortField);
-        queryWrapper.eq(StringUtils.isNotBlank(sortOrder), "sortOrder", sortOrder);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
-        queryWrapper.eq("isDeleted", false);
+        queryWrapper.eq("isDelete", false);
         //validSortField 是 SqlUtils 类中的一个方法，它的作用是验证 sortField 是否是一个有效的排序字段。
         // 例如，防止SQL注入攻击，确保只对数据库中存在的字段进行排序。
         queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
@@ -260,12 +263,14 @@ public class ChartController {
 
         //检验文件后缀
         String suffix = FileUtil.getSuffix(originalFilename);
-        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg");
+        final List<String> validFileSuffixList = Arrays.asList("xlsx", "csv", "svg", "webp", "jpeg");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
         // 通过response对象拿到用户id(必须登录才能使用)
-
         User loginUser = userService.getLoginUser(request);
+
+        //限流判断
+        redisLimiterManager.doRateLimit("genCharByAi_"+loginUser.getId());
         long biModelId = 1659171950288818178L;
         // 用户输入：
         // 分析需求：
