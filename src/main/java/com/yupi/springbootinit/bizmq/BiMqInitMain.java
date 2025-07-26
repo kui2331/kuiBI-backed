@@ -21,7 +21,7 @@ public class BiMqInitMain {
 
             String biExchange = BiMqConstant.BI_EXCHANGE_NAME;
 
-            channel.exchangeDeclare(biExchange, BiMqConstant.BI_EXCHANGE_NAME);
+            channel.exchangeDeclare(biExchange, "direct");
 
             // 创建队列，分配一个队列名称：demo_queue
             String queueName = BiMqConstant.BI_QUEUE_NAME;
